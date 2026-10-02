@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { restoreFromCode, startSync, stopSync, switchToShortCode, syncNow, type SyncResult } from "../lib/autosync";
+import { restoreFromCode, startSync, stopSync, syncNow, type SyncResult } from "../lib/autosync";
 import { FIT_CONFIG } from "../lib/config";
-import { isLongCode, newSyncCode, normalizeCode } from "../lib/sync";
+import { newSyncCode, normalizeCode } from "../lib/sync";
 import type { SyncState } from "../lib/types";
 import { ConfirmButton, shortDate } from "./kit";
 
@@ -136,11 +136,6 @@ export default function SyncPanel({ sync }: { sync: SyncState | undefined }) {
         <p className="fit-muted">
           Save it somewhere safe (a password manager is ideal). It&apos;s the only way back into your log, and anyone who has it can read it.
         </p>
-        {isLongCode(sync.code) ? (
-          <ConfirmButton className="fit-btn fit-btn--ghost fit-btn--sm" confirm="Tap again — new code, old one stops working" onConfirm={() => act(() => switchToShortCode())}>
-            Switch to a short code
-          </ConfirmButton>
-        ) : null}
       </div>
 
       {sync.conflict ? (

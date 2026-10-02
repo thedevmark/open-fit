@@ -14,8 +14,10 @@ const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 // Codes are 10 characters (50 bits), the shortest that holds up: online,
 // guessing one of a thousand users' codes at 10,000 tries a second takes
 // years; offline (a leaked copy of the server), PBKDF2 at OWASP's 600,000
-// rounds makes each guess cost real compute. The first codes were 26
-// characters (128 bits, HKDF only); those still work.
+// rounds makes each guess cost real compute. The very first codes were 26
+// characters (128 bits, HKDF only); a device still holding one swaps it for
+// a short code on its next sync (lib/fit/autosync.ts), so the long form is
+// only ever derived, never typed or shown.
 const SHORT_CHARS = 10;
 const LONG_CHARS = 26;
 const PBKDF2_ROUNDS = 600_000;
@@ -29,7 +31,7 @@ export function newSyncCode(): string {
   return group([...bytes].map((b) => ALPHABET[b & 31]).join(""));
 }
 
-/** A 26-character code from before codes got short. */
+/** A 26-character code from before codes got short: only migrated, never accepted as input. */
 export function isLongCode(code: string): boolean {
   return code.replace(/-/g, "").length === LONG_CHARS;
 }
@@ -37,7 +39,7 @@ export function isLongCode(code: string): boolean {
 /** Accepts what people actually type: lowercase, spaces, O for 0, I/L for 1. Null if it can't be a code. */
 export function normalizeCode(input: string): string | null {
   const clean = input.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
-  if ((clean.length !== SHORT_CHARS && clean.length !== LONG_CHARS) || [...clean].some((c) => !ALPHABET.includes(c))) return null;
+  if (clean.length !== SHORT_CHARS || [...clean].some((c) => !ALPHABET.includes(c))) return null;
   return group(clean);
 }
 

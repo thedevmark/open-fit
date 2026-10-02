@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState } from "react";
 import { activeSession, db, lastTrip, markDone, sessionsBetween, startSession, updateSettings } from "../lib/db";
 import { buildPlan, currentTemplateId, fatigueScores, MUSCLE_LABEL, tripsFrom, tripsOn } from "../lib/logic";
-import type { PlanItem } from "../lib/types";
+import type { Muscle, PlanItem } from "../lib/types";
 import BodyMap from "./BodyMap";
 import { duration, go, shortDate, useFit, useNow } from "./kit";
 import { TripPicker, TripToggle } from "./Trip";
@@ -12,8 +12,8 @@ export default function Today() {
   const now = useNow(60_000);
   const [override, setOverride] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
-  const [keepFull, setKeepFull] = useState<Set<string>>(new Set());
-  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  // Muscles the user chose to train at full sets despite needing rest.
+  const [keepFull, setKeepFull] = useState<Set<Muscle>>(new Set());
   const [busy, setBusy] = useState(false);
 
   const open = useLiveQuery(activeSession, []);
@@ -52,14 +52,22 @@ export default function Today() {
   );
 
   const plan: PlanItem[] = (built?.plan ?? [])
-    .filter((p) => !skipped.has(p.exercise_id))
-    .map((p) => (keepFull.has(p.exercise_id) ? { ...p, sets: p.template_sets } : p));
+    .map((p) => {
+      const m = exById.get(p.exercise_id)?.primary_muscle;
+      if (!m || !keepFull.has(m)) return p;
+      const reps = template?.items.find((i) => i.exercise_id === p.exercise_id)?.reps;
+      return { ...p, sets: p.template_sets, ...(reps ? { reps } : {}) };
+    });
+  const tired = [...new Set((built?.notes ?? []).map((n) => n.muscle))].map((m) => ({
+    muscle: m,
+    exercises: built!.notes.filter((n) => n.muscle === m).length,
+  }));
 
-  const toggle = (set: Set<string>, id: string, fn: (s: Set<string>) => void) => {
-    const next = new Set(set);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    fn(next);
+  const toggleFull = (m: Muscle) => {
+    const next = new Set(keepFull);
+    if (next.has(m)) next.delete(m);
+    else next.add(m);
+    setKeepFull(next);
   };
 
   const start = async () => {
@@ -102,7 +110,7 @@ export default function Today() {
                 type="button"
                 className={`fit-chip${t!.id === dayId ? " is-on" : ""}`}
                 aria-pressed={t!.id === dayId}
-                onClick={() => { setOverride(t!.id === upNext ? null : t!.id); setSwitching(false); setKeepFull(new Set()); setSkipped(new Set()); }}
+                onClick={() => { setOverride(t!.id === upNext ? null : t!.id); setSwitching(false); setKeepFull(new Set()); }}
               >
                 {t!.name}{t!.id === upNext ? " · next" : settings.cycle_done?.includes(t!.id) ? " · done" : ""}
               </button>
@@ -135,29 +143,19 @@ export default function Today() {
 
       <BodyMap scores={scores} threshold={settings.fatigue_threshold} />
 
-      {built?.notes.length ? (
-        <section className="fit-notes" aria-label="Recovery adjustments">
-          {built.notes.filter((n) => !skipped.has(n.exercise_id)).map((n) => {
-            const name = exById.get(n.exercise_id)?.name ?? "Exercise";
-            const later = n.later_template_id ? tById.get(n.later_template_id)?.name : null;
-            const full = keepFull.has(n.exercise_id);
+      {tired.length ? (
+        <section className="fit-notes" aria-label="Muscles that need rest">
+          {tired.map(({ muscle, exercises }) => {
+            const full = keepFull.has(muscle);
             return (
-              <div key={n.exercise_id} className="fit-note">
+              <div key={muscle} className="fit-note">
                 <p>
-                  <strong>{MUSCLE_LABEL[n.muscle]} is fatigued.</strong>{" "}
-                  {full ? `${name} kept at ${n.from} sets.` : `${name} trimmed ${n.from} → ${n.to} sets.`}
-                  {later ? ` Or move it to ${later}.` : ""}
+                  <strong>{MUSCLE_LABEL[muscle]} needs rest.</strong>{" "}
+                  {full ? "Full sets anyway." : `${exercises === 1 ? "1 exercise gets" : `${exercises} exercises get`} fewer sets today.`}
                 </p>
-                <div className="fit-note__actions">
-                  <button type="button" className="fit-btn fit-btn--ghost fit-btn--sm" onClick={() => toggle(keepFull, n.exercise_id, setKeepFull)}>
-                    {full ? `Trim to ${n.to}` : `Keep ${n.from}`}
-                  </button>
-                  {later ? (
-                    <button type="button" className="fit-btn fit-btn--ghost fit-btn--sm" onClick={() => toggle(skipped, n.exercise_id, setSkipped)}>
-                      Save for {later}
-                    </button>
-                  ) : null}
-                </div>
+                <button type="button" className="fit-btn fit-btn--ghost fit-btn--sm" aria-pressed={full} onClick={() => toggleFull(muscle)}>
+                  {full ? "Fewer sets" : "Do full sets"}
+                </button>
               </div>
             );
           })}
@@ -165,12 +163,7 @@ export default function Today() {
       ) : null}
 
       <section className="fit-plan" aria-label="Today's exercises">
-        <h2 className="fit-h2">
-          {plan.length} exercises · {totalSets} sets
-          {skipped.size ? (
-            <button type="button" className="fit-link" onClick={() => setSkipped(new Set())}>Restore {skipped.size} saved</button>
-          ) : null}
-        </h2>
+        <h2 className="fit-h2">{plan.length} exercises · {totalSets} sets</h2>
         {template && plan.length === 0 ? <p className="fit-empty">Nothing in this day yet. Add exercises in Program.</p> : null}
         <ol className="fit-plan__list">
           {plan.map((p) => {
@@ -189,7 +182,7 @@ export default function Today() {
                   )}
                 </div>
                 <span className="fit-plan__target">
-                  {p.sets < p.template_sets ? <s>{p.template_sets}</s> : null}
+                  {p.sets < p.template_sets && !p.reps ? <s>{p.template_sets}</s> : null}
                   {p.reps ? p.reps.join("/") : `${p.sets}×${p.rep_min}–${p.rep_max}`}
                 </span>
               </li>

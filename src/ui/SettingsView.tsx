@@ -2,9 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { FIT_CONFIG } from "../lib/config";
 import { exportBackup, importBackup, isBackup, updateSettings, wipeAll } from "../lib/db";
 import { localDate, TRIP_WORDS, tripsOn } from "../lib/logic";
-import { clock, ConfirmButton, Field, go, Stepper, TopBar, useFit } from "./kit";
+import type { Settings } from "../lib/types";
+import { clock, ConfirmButton, Field, go, Seg, Stepper, TopBar, useFit } from "./kit";
 import SyncPanel from "./SyncPanel";
 import { TripPicker } from "./Trip";
+
+// Recovery as one choice. Each pace is how long big and small muscles take
+// to clear a workout; "needs rest" is always 6 sets' worth.
+type Pace = "fast" | "normal" | "slow";
+const PACE: Record<Pace, Pick<Settings, "recovery_hours_large" | "recovery_hours_small" | "fatigue_threshold">> = {
+  fast: { recovery_hours_large: 48, recovery_hours_small: 36, fatigue_threshold: 6 },
+  normal: { recovery_hours_large: 72, recovery_hours_small: 48, fatigue_threshold: 6 },
+  slow: { recovery_hours_large: 96, recovery_hours_small: 72, fatigue_threshold: 6 },
+};
+function paceOf(s: Settings): Pace {
+  if (s.recovery_hours_large <= 54) return "fast";
+  if (s.recovery_hours_large >= 90) return "slow";
+  return "normal";
+}
 
 /** Whether the browser promised to keep this site's data, and whether it runs from the Home Screen. */
 function useStorageStatus(): { persisted: boolean | null; installed: boolean } {
@@ -98,21 +113,17 @@ export default function SettingsView() {
       ) : null}
 
       <h2 className="fit-h2">Recovery</h2>
-      <p className="fit-muted">
-        Every set you log leaves fatigue in the muscle it worked (half as much in the muscles that helped), and it fades away over the next two or three days.
-        A muscle holding a few sets&apos; worth shows <span className="fit-warn">amber</span>; at the red line it shows red and today&apos;s sets for it are cut by a third.
-        Tag a set &ldquo;failure&rdquo; and it counts 1.5×, &ldquo;easy&rdquo; ½×.
-      </p>
-      <div className="fit-grid2">
-        <Stepper size="sm" label="Big muscles recover (h)" value={settings.recovery_hours_large} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_large: v })} />
-        <Stepper size="sm" label="Small muscles recover (h)" value={settings.recovery_hours_small} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_small: v })} />
-        <Stepper size="sm" label="Red line (sets' worth)" value={settings.fatigue_threshold} step={0.5} min={1} max={30} onChange={(v) => updateSettings({ fatigue_threshold: v })} />
-        <Stepper size="sm" label={`Default rest ${clock(settings.default_rest_sec)}`} unit="s" value={settings.default_rest_sec} step={15} min={0} max={600} onChange={(v) => updateSettings({ default_rest_sec: v })} />
-      </div>
-      <p className="fit-muted">
-        Big: chest, back, glutes, quads, hamstrings. Small: shoulders, arms, traps, calves, abs.
-        Amber starts at a third of the red line ({+(settings.fatigue_threshold / 3).toFixed(1)} sets&apos; worth).
-      </p>
+      <p className="fit-muted">Muscles you&apos;ve worked show amber while they recover and red when they need rest. Red muscles get fewer sets today.</p>
+      <Seg<Pace>
+        label="How fast do you recover?"
+        value={paceOf(settings)}
+        onChange={(p) => updateSettings(PACE[p])}
+        options={[{ value: "fast", label: "Fast" }, { value: "normal", label: "Normal" }, { value: "slow", label: "Slow" }]}
+      />
+      <p className="fit-muted">Pick Slow if you&apos;re new to lifting or still sore when the app says you&apos;re fresh.</p>
+
+      <h2 className="fit-h2">Workout</h2>
+      <Stepper size="sm" label={`Default rest ${clock(settings.default_rest_sec)}`} unit="s" value={settings.default_rest_sec} step={15} min={0} max={600} onChange={(v) => updateSettings({ default_rest_sec: v })} />
 
       <SyncPanel sync={settings.sync} />
 

@@ -410,7 +410,7 @@ select.fit-input { appearance: none; background-image: linear-gradient(45deg, tr
 .fit-body__all { color: var(--fit-good); font-size: 15px; font-weight: 600; }
 
 .fit-notes { display: flex; flex-direction: column; gap: 8px; }
-.fit-note { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid color-mix(in oklch, var(--fit-fatigued) 35%, transparent); border-radius: 10px; background: color-mix(in oklch, var(--fit-fatigued) 7%, var(--fit-surface)); font-size: 15px; }
+.fit-note { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 10px 14px; border: 1px solid color-mix(in oklch, var(--fit-fatigued) 35%, transparent); border-radius: 10px; background: color-mix(in oklch, var(--fit-fatigued) 7%, var(--fit-surface)); font-size: 15px; }
 .fit-note__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .fit-plan { display: flex; flex-direction: column; gap: 8px; }

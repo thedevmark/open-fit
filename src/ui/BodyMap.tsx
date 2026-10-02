@@ -33,7 +33,7 @@ const BACK: Record<string, Muscle[]> = {
   calves: ["calves"],
 };
 
-const STATUS_LABEL: Record<MuscleStatus, string> = { fresh: "Fresh", recovering: "Recovering", fatigued: "Fatigued" };
+const STATUS_LABEL: Record<MuscleStatus, string> = { fresh: "Fresh", recovering: "Recovering", fatigued: "Needs rest" };
 
 export default function BodyMap({ scores, threshold }: { scores: Record<Muscle, number>; threshold: number }) {
   const [picked, setPicked] = useState<Muscle[] | null>(null);
@@ -85,7 +85,7 @@ export default function BodyMap({ scores, threshold }: { scores: Record<Muscle, 
           <ul className="fit-body__picked">
             {picked.map((m) => (
               <li key={m}>
-                <strong>{MUSCLE_LABEL[m]}</strong> {STATUS_LABEL[status(m)].toLowerCase()} · {score(m).toFixed(1)} of {threshold} sets&apos; worth
+                <strong>{MUSCLE_LABEL[m]}</strong> {STATUS_LABEL[status(m)].toLowerCase()}
               </li>
             ))}
           </ul>

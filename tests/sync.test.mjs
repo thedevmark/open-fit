@@ -36,20 +36,19 @@ const backup = (sets) => ({
   equipment: [], exercises: [], templates: [], sessions: [{ id: 's1' }], sets, settings: { id: 'settings' },
 });
 
-test('codes are 10 characters, grouped, and survive sloppy retyping; old 26-character codes still read', () => {
+test('codes are 10 characters, grouped, and survive sloppy retyping; long codes are not accepted', () => {
   const code = newSyncCode();
   assert.match(code, /^[0-9A-HJKMNP-TV-Z]{5}-[0-9A-HJKMNP-TV-Z]{5}$/);
   assert.notEqual(newSyncCode(), code);
   assert.equal(normalizeCode(code.toLowerCase().replace('-', ' ')), code);
   assert.equal(normalizeCode('OOOOO-IIIII'), '00000-11111');
   assert.equal(normalizeCode('too short'), null);
-  const long = '0000-0000-0000-0000-0000-0000-00';
-  assert.equal(normalizeCode(long.replace(/-/g, '')), long);
-  assert.ok(isLongCode(long) && !isLongCode(code));
+  assert.equal(normalizeCode('0000-0000-0000-0000-0000-0000-00'), null, 'only migrated, never typed');
+  assert.ok(isLongCode('0000-0000-0000-0000-0000-0000-00') && !isLongCode(code));
 });
 
-test('a long code still derives the keys it always had', async () => {
-  // Pinned so a refactor can't silently strand copies synced under the first, 26-character codes.
+test('a long code still derives the keys it always had, so its copy can be migrated', async () => {
+  // Pinned: a device on a first-generation code reads its old copy with these keys before switching to a short code.
   const keys = await deriveKeys('0000-0000-0000-0000-0000-0000-00');
   assert.equal(keys.id, LONG_ZERO_ID);
 });
