@@ -728,3 +728,13 @@ button.fit-plan__eq { min-height: 32px; padding: 0; border: 0; background: none;
 .fit-trip-row { display: flex; align-items: center; gap: 10px; }
 .fit-trip-row .fit-bike { flex: 1; min-width: 0; }
 .fit-bike svg path { fill: none; }
+
+/* Machine catalog + "More" disclosure */
+.fit-catalog__row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--fit-surface); }
+.fit-catalog__row .fit-list__main { flex: 1; min-width: 0; }
+.fit-catalog { display: flex; flex-direction: column; gap: 6px; }
+.fit-catalog__group { display: flex; flex-direction: column; gap: 8px; }
+.fit-more { border: 1px solid var(--fit-line); border-radius: var(--fit-radius); padding: 0 12px; }
+.fit-more > summary { min-height: 44px; display: flex; align-items: center; color: var(--fit-ink-2); font-weight: 600; cursor: pointer; list-style: none; }
+.fit-more > summary::-webkit-details-marker { display: none; }
+.fit-more[open] { display: flex; flex-direction: column; gap: 12px; padding-bottom: 12px; }

@@ -4,6 +4,7 @@ import { syncNow } from "../lib/autosync";
 import { FIT_CONFIG } from "../lib/config";
 import { db } from "../lib/db";
 import History from "./History";
+import { AddFromLink } from "./MachineAdd";
 import Library from "./Library";
 import Program from "./Program";
 import SettingsView from "./SettingsView";
@@ -111,6 +112,7 @@ export default function FitApp() {
       case "library": return <Library route={route.slice(1)} />;
       case "program": return <Program route={route.slice(1)} />;
       case "settings": return <SettingsView />;
+      case "add-machines": return <AddFromLink payload={route[1]} />;
       default: return <Today />;
     }
   })();

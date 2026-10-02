@@ -25,6 +25,11 @@ suggests the weight for each set from what you did last time.
   on its own: hit the target and that set goes up a step next time.
 - **Machine routing.** Every exercise has an ordered list of machines. Machine
   taken? One tap moves you to the next one, with its own weight history.
+- **Adding machines is a search.** Type what's on the sticker ("hammer
+  incline", "pulldown", "insignia shoulder") and tap: a built-in catalog of
+  common commercial-gym machines knows each one's type, muscles and
+  exercises. Anything else: a name and what you do on it. A whole floor can
+  arrive as one link (`npm run machine-link machines.json <your app url>`).
 - **Recovery map.** Sets add fatigue per muscle and it fades over 48 to 72
   hours; a muscle that's still cooked gets a third fewer sets today.
 - **How-to photos and steps** for every starter exercise.

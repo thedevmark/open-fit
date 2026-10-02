@@ -2,6 +2,7 @@
 // Pure training rules live in ./logic; this file only reads and writes.
 
 import Dexie, { type Table, type Transaction } from "dexie";
+import { planMachineAdds, type MachineRequest } from "./catalog";
 import { FIT_CONFIG } from "./config";
 import { afterTraining, groupBySession, localDate, type PastSession } from "./logic";
 import { DEFAULT_SETTINGS, STARTER_EQUIPMENT, STARTER_EXERCISES, STARTER_TEMPLATES, upgradeLibrary, upgradeStarter } from "./seed";
@@ -217,6 +218,16 @@ export async function machineHistory(exerciseId: string, equipmentId: string, ex
 }
 
 // ── Library ──────────────────────────────────────────────────────────
+
+/** Add machines from the catalog or by hand, linked to their exercises. Returns how many are new. */
+export async function addMachines(requests: readonly MachineRequest[]): Promise<number> {
+  return db.transaction("rw", [db.equipment, db.exercises], async () => {
+    const plan = planMachineAdds(requests, await db.equipment.toArray(), await db.exercises.toArray(), newId);
+    if (plan.equipment.length) await db.equipment.bulkPut(plan.equipment);
+    if (plan.exercises.length) await db.exercises.bulkPut(plan.exercises);
+    return plan.added;
+  });
+}
 
 /** Remove a machine and unlink it from every exercise's options. Logged sets keep their history. */
 export async function deleteEquipment(id: string): Promise<void> {

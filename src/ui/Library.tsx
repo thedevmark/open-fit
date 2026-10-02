@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { db, deleteEquipment, deleteExercise, newId } from "../lib/db";
 import { DEFAULT_STEP_LB, EQUIPMENT_TYPES, MUSCLE_LABEL, MUSCLES, stepFor } from "../lib/logic";
-import type { Equipment, Exercise, Muscle } from "../lib/types";
+import type { Equipment, EquipmentType, Exercise, Muscle } from "../lib/types";
 import { Chip, ConfirmButton, Empty, Field, go, Seg, Stepper, TopBar, useFit } from "./kit";
+import { QuickAdd } from "./MachineAdd";
 
 type Tab = "machines" | "exercises";
 
 export default function Library({ route }: { route: string[] }) {
+  if (route[0] === "add" || (route[0] === "eq" && route[1] === "new")) return <QuickAdd />;
   if (route[0] === "eq" && route[1]) return <EquipmentEditor id={route[1]} />;
   if (route[0] === "ex" && route[1]) return <ExerciseEditor id={route[1]} />;
   const tab: Tab = route[0] === "exercises" ? "exercises" : "machines";
@@ -15,7 +17,7 @@ export default function Library({ route }: { route: string[] }) {
       <TopBar
         title="Library"
         right={
-          <button type="button" className="fit-btn fit-btn--primary fit-btn--sm" onClick={() => go("library", tab === "machines" ? "eq" : "ex", "new")}>
+          <button type="button" className="fit-btn fit-btn--primary fit-btn--sm" onClick={() => (tab === "machines" ? go("library", "add") : go("library", "ex", "new"))}>
             + {tab === "machines" ? "Machine" : "Exercise"}
           </button>
         }
@@ -83,15 +85,19 @@ function ExerciseList() {
   );
 }
 
-function blankEquipment(): Equipment {
-  return { id: newId(), name: "", type: "selectorized", muscles: [], location_note: "", setup_note: "", available: true };
-}
+const TYPE_LABEL: Record<EquipmentType, string> = {
+  "plate-loaded": "Plates",
+  selectorized: "Pin stack",
+  cable: "Cable",
+  "free weight": "Free weights",
+  bodyweight: "Bodyweight",
+  cardio: "Cardio",
+};
 
 function EquipmentEditor({ id }: { id: string }) {
   const { eqById, exercises } = useFit();
-  const isNew = id === "new";
   const existing = eqById.get(id);
-  const [draft, setDraft] = useState<Equipment | null>(() => (isNew ? blankEquipment() : existing ? { ...existing } : null));
+  const [draft, setDraft] = useState<Equipment | null>(() => (existing ? { ...existing } : null));
   const [linkTo, setLinkTo] = useState("");
   useEffect(() => {
     if (!draft && existing) setDraft({ ...existing });
@@ -112,18 +118,20 @@ function EquipmentEditor({ id }: { id: string }) {
 
   return (
     <div className="fit-page">
-      <TopBar title={isNew ? "New machine" : draft.name || "Machine"} onBack={() => go("library")} />
+      <TopBar title={draft.name || "Machine"} onBack={() => go("library")} />
       <Field label="Name"><input className="fit-input" value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="Plate-loaded incline press" /></Field>
-      <Field label="Type">
-        <div className="fit-chips">
-          {EQUIPMENT_TYPES.map((t) => <Chip key={t} on={draft.type === t} onClick={() => set({ type: t })}>{t}</Chip>)}
-        </div>
-      </Field>
       <Field label="Where it is" hint="What you'd tell yourself walking in: “back left by windows”.">
         <input className="fit-input" value={draft.location_note} onChange={(e) => set({ location_note: e.target.value })} placeholder="Back left by windows" />
       </Field>
       <Field label="Setup" hint="Seat, pads, handles — shown on the exercise card every time.">
         <input className="fit-input" value={draft.setup_note} onChange={(e) => set({ setup_note: e.target.value })} placeholder="Seat 4, pad 2" />
+      </Field>
+      <details className="fit-more">
+        <summary>More: type, weight step, muscles, out of order</summary>
+      <Field label="Type">
+        <div className="fit-chips">
+          {EQUIPMENT_TYPES.map((t) => <Chip key={t} on={draft.type === t} onClick={() => set({ type: t })}>{TYPE_LABEL[t]}</Chip>)}
+        </div>
       </Field>
       <div className="fit-field">
         <span className="fit-field__label">Weight step</span>
@@ -146,6 +154,7 @@ function EquipmentEditor({ id }: { id: string }) {
         <input type="checkbox" checked={draft.available} onChange={(e) => set({ available: e.target.checked })} />
         <span>Available at the club (untick when it's out of order — swaps skip it)</span>
       </label>
+      </details>
       <div className="fit-field">
         <span className="fit-field__label">Used by</span>
         {usedBy.length ? (
@@ -163,9 +172,7 @@ function EquipmentEditor({ id }: { id: string }) {
       <div className="fit-dock">
         <button type="button" className="fit-btn fit-btn--primary fit-btn--block" disabled={!draft.name.trim()} onClick={save}>Save machine</button>
       </div>
-      {!isNew ? (
-        <ConfirmButton confirm="Tap again — history stays" onConfirm={async () => { await deleteEquipment(draft.id); go("library"); }}>Delete machine</ConfirmButton>
-      ) : null}
+      <ConfirmButton confirm="Tap again — history stays" onConfirm={async () => { await deleteEquipment(draft.id); go("library"); }}>Delete machine</ConfirmButton>
     </div>
   );
 }
