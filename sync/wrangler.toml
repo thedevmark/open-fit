@@ -1,0 +1,25 @@
+name = "open-fit-sync"
+main = "src/index.ts"
+compatibility_date = "2026-03-31"
+
+# Encrypted backup storage for the sync code. See src/index.ts and the README.
+
+[vars]
+# Where your app is served from (comma-separated). "*" works but lets any site use your storage.
+ALLOWED_ORIGINS = "http://localhost:5173"
+
+# npx wrangler kv namespace create OPEN_FIT_SYNC, then paste the id here.
+[[kv_namespaces]]
+binding = "BLOBS"
+id = "PASTE_YOUR_KV_NAMESPACE_ID"
+
+# Per-IP limits. namespace_id is any positive integer unique on your account.
+[[ratelimits]]
+name = "RL_WRITE"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "RL_READ"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
