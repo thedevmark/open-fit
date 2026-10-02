@@ -99,15 +99,20 @@ export default function SettingsView() {
 
       <h2 className="fit-h2">Recovery</h2>
       <p className="fit-muted">
-        Each set adds fatigue — 1 to the primary muscle, ½ to secondaries, ×1.5 when tagged failure (×½ easy) — and it fades to zero over the window.
-        At the threshold a muscle is fatigued and today&apos;s sets for it drop by a third.
+        Every set you log leaves fatigue in the muscle it worked (half as much in the muscles that helped), and it fades away over the next two or three days.
+        A muscle holding a few sets&apos; worth shows <span className="fit-warn">amber</span>; at the red line it shows red and today&apos;s sets for it are cut by a third.
+        Tag a set &ldquo;failure&rdquo; and it counts 1.5×, &ldquo;easy&rdquo; ½×.
       </p>
       <div className="fit-grid2">
-        <Stepper size="sm" label="Large muscles (h)" value={settings.recovery_hours_large} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_large: v })} />
-        <Stepper size="sm" label="Small muscles (h)" value={settings.recovery_hours_small} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_small: v })} />
-        <Stepper size="sm" label="Fatigue threshold" value={settings.fatigue_threshold} step={0.5} min={1} max={30} onChange={(v) => updateSettings({ fatigue_threshold: v })} />
+        <Stepper size="sm" label="Big muscles recover (h)" value={settings.recovery_hours_large} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_large: v })} />
+        <Stepper size="sm" label="Small muscles recover (h)" value={settings.recovery_hours_small} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_small: v })} />
+        <Stepper size="sm" label="Red line (sets' worth)" value={settings.fatigue_threshold} step={0.5} min={1} max={30} onChange={(v) => updateSettings({ fatigue_threshold: v })} />
         <Stepper size="sm" label={`Default rest ${clock(settings.default_rest_sec)}`} unit="s" value={settings.default_rest_sec} step={15} min={0} max={600} onChange={(v) => updateSettings({ default_rest_sec: v })} />
       </div>
+      <p className="fit-muted">
+        Big: chest, back, glutes, quads, hamstrings. Small: shoulders, arms, traps, calves, abs.
+        Amber starts at a third of the red line ({+(settings.fatigue_threshold / 3).toFixed(1)} sets&apos; worth).
+      </p>
 
       <SyncPanel sync={settings.sync} />
 

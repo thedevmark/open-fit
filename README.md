@@ -56,10 +56,11 @@ server, no analytics, and nothing to sign up for.
   site's data after a week without a visit; Home Screen apps are exempt.
 - **Export / Import** in Settings writes and reads a JSON backup file.
 - **Sync code (optional).** If you deploy the worker in [`sync/`](sync/), the
-  app can keep an encrypted copy off your phone. It shows you a random code;
-  type it on a new phone to get everything back. The code never leaves the
-  device: it derives the storage id, a write token and an AES-GCM key
-  (HKDF-SHA256), the server stores ciphertext and a hash of the token, and a
+  app can keep an encrypted copy off your phone. It shows you a random
+  10-character code (`7KQ2M-X9PDA`); type it on a new phone to get everything
+  back. The code never leaves the device: it's stretched (PBKDF2-SHA256,
+  600,000 rounds) into the storage id, a write token and an AES-GCM key
+  (HKDF-SHA256). The server stores ciphertext and a hash of the token, and a
   copy can only be replaced at the version the device last saw. No account,
   no email. Lose the code and the copy can't be read by anyone, including you.
 

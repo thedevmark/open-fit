@@ -85,7 +85,7 @@ export default function BodyMap({ scores, threshold }: { scores: Record<Muscle, 
           <ul className="fit-body__picked">
             {picked.map((m) => (
               <li key={m}>
-                <strong>{MUSCLE_LABEL[m]}</strong> {STATUS_LABEL[status(m)].toLowerCase()} · {score(m).toFixed(1)} / {threshold}
+                <strong>{MUSCLE_LABEL[m]}</strong> {STATUS_LABEL[status(m)].toLowerCase()} · {score(m).toFixed(1)} of {threshold} sets&apos; worth
               </li>
             ))}
           </ul>

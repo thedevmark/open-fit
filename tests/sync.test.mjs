@@ -2,10 +2,12 @@
 // worker handler (sync/) over an in-memory KV.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { contentHash, deriveKeys, download, newSyncCode, normalizeCode, remove, SyncConflict, upload } from '../src/lib/sync.ts';
+import { contentHash, deriveKeys, download, isLongCode, newSyncCode, normalizeCode, remove, SyncConflict, upload } from '../src/lib/sync.ts';
 import { handle } from '../sync/src/index.ts';
 
 const URL_BASE = 'https://sync.test';
+// The id the original (pre-short-code) implementation derived for the all-zeros long code.
+const LONG_ZERO_ID = 'ac96883ef3fbaf6311a847416c42661789a20d6b6545b99cc886124a8af587c5';
 
 function fakeKV() {
   const store = new Map();
@@ -34,13 +36,22 @@ const backup = (sets) => ({
   equipment: [], exercises: [], templates: [], sessions: [{ id: 's1' }], sets, settings: { id: 'settings' },
 });
 
-test('codes are 128-bit, grouped, and survive sloppy retyping', () => {
+test('codes are 10 characters, grouped, and survive sloppy retyping; old 26-character codes still read', () => {
   const code = newSyncCode();
-  assert.match(code, /^([0-9A-HJKMNP-TV-Z]{4}-){6}[0-9A-HJKMNP-TV-Z]{2}$/);
+  assert.match(code, /^[0-9A-HJKMNP-TV-Z]{5}-[0-9A-HJKMNP-TV-Z]{5}$/);
   assert.notEqual(newSyncCode(), code);
-  assert.equal(normalizeCode(code.toLowerCase().replace(/-/g, ' ')), code);
-  assert.equal(normalizeCode('0000-0000-0000-0000-0000-0000-00'.replace(/0/g, 'O')), '0000-0000-0000-0000-0000-0000-00');
+  assert.equal(normalizeCode(code.toLowerCase().replace('-', ' ')), code);
+  assert.equal(normalizeCode('OOOOO-IIIII'), '00000-11111');
   assert.equal(normalizeCode('too short'), null);
+  const long = '0000-0000-0000-0000-0000-0000-00';
+  assert.equal(normalizeCode(long.replace(/-/g, '')), long);
+  assert.ok(isLongCode(long) && !isLongCode(code));
+});
+
+test('a long code still derives the keys it always had', async () => {
+  // Pinned so a refactor can't silently strand copies synced under the first, 26-character codes.
+  const keys = await deriveKeys('0000-0000-0000-0000-0000-0000-00');
+  assert.equal(keys.id, LONG_ZERO_ID);
 });
 
 test('keys: the server-facing id and token are stable per code and reveal nothing shared', async () => {

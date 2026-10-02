@@ -10,44 +10,47 @@ import type { Backup } from "./types";
 
 // Crockford base32: no I, L, O, U, so a code read aloud or retyped survives.
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const CODE_BYTES = 16; // 128 bits
-const CODE_CHARS = Math.ceil((CODE_BYTES * 8) / 5); // 26
 
-/** A fresh random code, shown in groups of four: "7KQ2-…". */
+// Codes are 10 characters (50 bits), the shortest that holds up: online,
+// guessing one of a thousand users' codes at 10,000 tries a second takes
+// years; offline (a leaked copy of the server), PBKDF2 at OWASP's 600,000
+// rounds makes each guess cost real compute. The first codes were 26
+// characters (128 bits, HKDF only); those still work.
+const SHORT_CHARS = 10;
+const LONG_CHARS = 26;
+const PBKDF2_ROUNDS = 600_000;
+
+const group = (clean: string) => (clean.length === SHORT_CHARS ? clean.match(/.{5}/g)! : clean.match(/.{1,4}/g)!).join("-");
+
+/** A fresh random code: "7KQ2M-X9PDA". */
 export function newSyncCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(CODE_BYTES));
-  let bits = 0;
-  let value = 0;
-  let out = "";
-  for (const b of bytes) {
-    value = (value << 8) | b;
-    bits += 8;
-    while (bits >= 5) {
-      out += ALPHABET[(value >>> (bits - 5)) & 31];
-      bits -= 5;
-    }
-  }
-  if (bits > 0) out += ALPHABET[(value << (5 - bits)) & 31];
-  return out.match(/.{1,4}/g)!.join("-");
+  // 256 is a multiple of 32, so masking a random byte to 5 bits is unbiased.
+  const bytes = crypto.getRandomValues(new Uint8Array(SHORT_CHARS));
+  return group([...bytes].map((b) => ALPHABET[b & 31]).join(""));
+}
+
+/** A 26-character code from before codes got short. */
+export function isLongCode(code: string): boolean {
+  return code.replace(/-/g, "").length === LONG_CHARS;
 }
 
 /** Accepts what people actually type: lowercase, spaces, O for 0, I/L for 1. Null if it can't be a code. */
 export function normalizeCode(input: string): string | null {
   const clean = input.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
-  if (clean.length !== CODE_CHARS || [...clean].some((c) => !ALPHABET.includes(c))) return null;
-  return clean.match(/.{1,4}/g)!.join("-");
+  if ((clean.length !== SHORT_CHARS && clean.length !== LONG_CHARS) || [...clean].some((c) => !ALPHABET.includes(c))) return null;
+  return group(clean);
 }
 
-function codeBytes(code: string): Uint8Array<ArrayBuffer> {
-  const clean = code.replace(/-/g, "");
-  const out = new Uint8Array(CODE_BYTES);
+/** A long code's 128 bits. */
+function longCodeBytes(clean: string): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(16);
   let bits = 0;
   let value = 0;
   let i = 0;
   for (const c of clean) {
     value = (value << 5) | ALPHABET.indexOf(c);
     bits += 5;
-    if (bits >= 8 && i < CODE_BYTES) {
+    if (bits >= 8 && i < out.length) {
       out[i++] = (value >>> (bits - 8)) & 255;
       bits -= 8;
     }
@@ -56,7 +59,7 @@ function codeBytes(code: string): Uint8Array<ArrayBuffer> {
 }
 
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-const SALT = new TextEncoder().encode("open-fit-sync-v1");
+const enc = (text: string) => new TextEncoder().encode(text);
 
 export interface SyncKeys {
   /** Where the copy lives on the server. Reveals nothing about the code. */
@@ -66,9 +69,32 @@ export interface SyncKeys {
   key: CryptoKey;
 }
 
-export async function deriveKeys(code: string): Promise<SyncKeys> {
-  const ikm = await crypto.subtle.importKey("raw", codeBytes(code), "HKDF", false, ["deriveBits", "deriveKey"]);
-  const params = (info: string): HkdfParams => ({ name: "HKDF", hash: "SHA-256", salt: SALT, info: new TextEncoder().encode(info) });
+const derived = new Map<string, Promise<SyncKeys>>();
+
+/** Keys for a code. The slow stretch runs once per code per app session. */
+export function deriveKeys(code: string): Promise<SyncKeys> {
+  let keys = derived.get(code);
+  if (!keys) {
+    keys = derive(code.replace(/-/g, ""));
+    derived.set(code, keys);
+    keys.catch(() => derived.delete(code));
+  }
+  return keys;
+}
+
+async function derive(clean: string): Promise<SyncKeys> {
+  let ikm: CryptoKey;
+  let salt: Uint8Array<ArrayBuffer>;
+  if (clean.length === LONG_CHARS) {
+    ikm = await crypto.subtle.importKey("raw", longCodeBytes(clean), "HKDF", false, ["deriveBits", "deriveKey"]);
+    salt = enc("open-fit-sync-v1");
+  } else {
+    const password = await crypto.subtle.importKey("raw", enc(clean), "PBKDF2", false, ["deriveBits"]);
+    const stretched = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: enc("open-fit-sync-v2-stretch"), iterations: PBKDF2_ROUNDS }, password, 256);
+    ikm = await crypto.subtle.importKey("raw", stretched, "HKDF", false, ["deriveBits", "deriveKey"]);
+    salt = enc("open-fit-sync-v2");
+  }
+  const params = (info: string): HkdfParams => ({ name: "HKDF", hash: "SHA-256", salt, info: enc(info) });
   const [id, token, key] = await Promise.all([
     crypto.subtle.deriveBits(params("id"), ikm, 256),
     crypto.subtle.deriveBits(params("write"), ikm, 256),

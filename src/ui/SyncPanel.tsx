@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { restoreFromCode, startSync, stopSync, syncNow, type SyncResult } from "../lib/autosync";
+import { restoreFromCode, startSync, stopSync, switchToShortCode, syncNow, type SyncResult } from "../lib/autosync";
 import { FIT_CONFIG } from "../lib/config";
-import { newSyncCode, normalizeCode } from "../lib/sync";
+import { isLongCode, newSyncCode, normalizeCode } from "../lib/sync";
 import type { SyncState } from "../lib/types";
 import { ConfirmButton, shortDate } from "./kit";
 
@@ -49,7 +49,7 @@ export function RestoreForm({ onRestored, replaceWarning }: { onRestored?: () =>
         className="fit-input fit-sync__code"
         value={code}
         onChange={(e) => { setCode(e.target.value); setMsg(null); }}
-        placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX"
+        placeholder="XXXXX-XXXXX"
         autoCapitalize="characters"
         autoCorrect="off"
         spellCheck={false}
@@ -64,7 +64,7 @@ export function RestoreForm({ onRestored, replaceWarning }: { onRestored?: () =>
           {busy ? "Restoring…" : "Restore from this code"}
         </button>
       )}
-      {code && !clean ? <p className="fit-muted">A code is 26 letters and numbers.</p> : null}
+      {code && !clean ? <p className="fit-muted">A code is 10 letters and numbers.</p> : null}
       {msg ? <p className="fit-msg" role="status">{msg}</p> : null}
     </div>
   );
@@ -114,7 +114,7 @@ export default function SyncPanel({ sync }: { sync: SyncState | undefined }) {
       <h2 className="fit-h2" id="fit-sync-h">Sync</h2>
       <div className="fit-sync__card">
         <span className="fit-field__label">Your sync code</span>
-        <p className="fit-sync__shown" aria-live="polite">{shown ? sync.code : "••••-••••-••••-••••-••••-••••-••"}</p>
+        <p className="fit-sync__shown" aria-live="polite">{shown ? sync.code : sync.code.replace(/[0-9A-Z]/g, "•")}</p>
         <div className="fit-row">
           <button type="button" className="fit-btn fit-btn--ghost fit-btn--sm" onClick={() => setShown((s) => !s)}>{shown ? "Hide" : "Show"}</button>
           <button
@@ -136,6 +136,11 @@ export default function SyncPanel({ sync }: { sync: SyncState | undefined }) {
         <p className="fit-muted">
           Save it somewhere safe (a password manager is ideal). It&apos;s the only way back into your log, and anyone who has it can read it.
         </p>
+        {isLongCode(sync.code) ? (
+          <ConfirmButton className="fit-btn fit-btn--ghost fit-btn--sm" confirm="Tap again — new code, old one stops working" onConfirm={() => act(() => switchToShortCode())}>
+            Switch to a short code
+          </ConfirmButton>
+        ) : null}
       </div>
 
       {sync.conflict ? (

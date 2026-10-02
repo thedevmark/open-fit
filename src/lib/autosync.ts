@@ -4,7 +4,7 @@
 
 import { FIT_CONFIG } from "./config";
 import { db, exportBackup, importBackup, isBackup, updateSettings } from "./db";
-import { contentHash, deriveKeys, download, remove, SyncConflict, upload } from "./sync";
+import { contentHash, deriveKeys, download, newSyncCode, remove, SyncConflict, upload } from "./sync";
 import type { SyncState } from "./types";
 
 export type SyncResult = "off" | "sent" | "fetched" | "same" | "conflict" | "error";
@@ -95,6 +95,29 @@ export async function restoreFromCode(code: string): Promise<"restored" | "missi
   const hash = await contentHash(await exportBackup());
   await updateSettings({ sync: { code, remote_version: remote.version, local_hash: hash, last_synced_at: Date.now() } });
   return "restored";
+}
+
+/**
+ * Move from a 26-character code to a short one. Syncs first (so nothing
+ * newer on the old copy is lost), writes the new copy, and only then deletes
+ * the old one. Other devices need the new code.
+ */
+export async function switchToShortCode(): Promise<SyncResult> {
+  const url = FIT_CONFIG.syncUrl;
+  const before = await syncNow();
+  if (before === "conflict" || before === "error" || before === "off" || !url) return before;
+  const old = (await db.settings.get("settings"))?.sync;
+  if (!old) return "off";
+  try {
+    const code = newSyncCode();
+    const local = await exportBackup();
+    const version = await upload(url, await deriveKeys(code), local, null);
+    await updateSettings({ sync: { code, remote_version: version, local_hash: await contentHash(local), last_synced_at: Date.now() } });
+    await remove(url, await deriveKeys(old.code)).catch(() => undefined); // it also expires on its own
+    return "sent";
+  } catch {
+    return "error";
+  }
 }
 
 /** Stop syncing here. With `deleteCopy`, the synced copy is deleted from the server too. */
