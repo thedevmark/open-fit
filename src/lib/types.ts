@@ -25,6 +25,9 @@ export type EquipmentType = "plate-loaded" | "selectorized" | "cable" | "free we
 
 export type Effort = "easy" | "solid" | "failure";
 
+/** How someone got to the gym, when it counts as leg work. */
+export type TripMode = "ride" | "run" | "walk";
+
 export interface Equipment {
   id: string;
   name: string;
@@ -97,8 +100,10 @@ export interface Session {
   cursor: number;
   /** true = "mark done" without logging (light day). */
   marked_only?: boolean;
-  /** Miles ridden to get here; 0 or missing = came another way. */
+  /** Miles travelled to get here (the name predates running and walking); 0 or missing = didn't count. */
   biked_miles?: number;
+  /** How those miles were travelled. Missing with miles set = a ride (older data). */
+  trip_mode?: TripMode;
 }
 
 export interface SetLog {
@@ -126,10 +131,12 @@ export interface Settings {
   fatigue_threshold: number;
   club_name: string;
   setup_done: boolean;
-  /** Miles one "Rode here" counts for. Missing on data from before rides existed → 5. */
+  /** Superseded by `trip`; read once to carry an older ride distance over. */
   ride_miles?: number;
-  /** Show the "Rode here?" switch and count rides as leg fatigue. Missing (older data) → on. */
+  /** Count the trip to the gym as leg fatigue. Missing (older data) → on. */
   ride_tracking?: boolean;
+  /** Usual way here and distance, set the first time it's asked; then it's a yes/no each visit. */
+  trip?: { mode: TripMode; miles: number };
   /** Sync-code state. Lives only on this device: never in a backup file or the synced copy. */
   sync?: SyncState;
 }

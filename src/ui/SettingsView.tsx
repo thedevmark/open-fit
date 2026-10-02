@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { FIT_CONFIG } from "../lib/config";
 import { exportBackup, importBackup, isBackup, updateSettings, wipeAll } from "../lib/db";
-import { DEFAULT_RIDE_MILES, localDate, ridesOn } from "../lib/logic";
+import { localDate, TRIP_WORDS, tripsOn } from "../lib/logic";
 import { clock, ConfirmButton, Field, go, Stepper, TopBar, useFit } from "./kit";
 import SyncPanel from "./SyncPanel";
+import { TripPicker } from "./Trip";
 
 /** Whether the browser promised to keep this site's data, and whether it runs from the Home Screen. */
 function useStorageStatus(): { persisted: boolean | null; installed: boolean } {
@@ -20,7 +21,8 @@ export default function SettingsView() {
   const { settings } = useFit();
   const storage = useStorageStatus();
   const [club, setClub] = useState(settings.club_name);
-  const rides = ridesOn(settings);
+  const trips = tripsOn(settings);
+  const [editingTrip, setEditingTrip] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, setPending] = useState<unknown>(null);
   const file = useRef<HTMLInputElement>(null);
@@ -70,16 +72,30 @@ export default function SettingsView() {
       <button
         type="button"
         role="switch"
-        aria-checked={rides}
-        className={`fit-toggle-row${rides ? " is-on" : ""}`}
-        onClick={() => updateSettings({ ride_tracking: !rides })}
+        aria-checked={trips}
+        className={`fit-toggle-row${trips ? " is-on" : ""}`}
+        onClick={() => updateSettings({ ride_tracking: !trips })}
       >
         <span>
-          <strong>I bike to the gym</strong>
-          <small>Adds a &ldquo;Rode here?&rdquo; switch. A ride counts about one set for the quads per 5 miles, plus a little for glutes, calves and hamstrings.</small>
+          <strong>Count the trip to the gym</strong>
+          <small>Riding, running or walking there adds leg fatigue. 5 miles of riding is about one set for the quads; running counts more, walking less.</small>
         </span>
         <span className="fit-bike__switch" aria-hidden="true"><i /></span>
       </button>
+      {trips && settings.trip && !editingTrip ? (
+        <div className="fit-row fit-row--between">
+          <span className="fit-muted">Usually: {TRIP_WORDS[settings.trip.mode].past} {settings.trip.miles} mi</span>
+          <button type="button" className="fit-btn fit-btn--ghost fit-btn--sm" onClick={() => setEditingTrip(true)}>Change</button>
+        </div>
+      ) : null}
+      {trips && editingTrip ? (
+        <TripPicker
+          current={settings.trip}
+          onSave={(t) => { void updateSettings({ trip: t }); setEditingTrip(false); }}
+          onNone={() => { void updateSettings({ ride_tracking: false }); setEditingTrip(false); }}
+          onCancel={() => setEditingTrip(false)}
+        />
+      ) : null}
 
       <h2 className="fit-h2">Recovery</h2>
       <p className="fit-muted">
@@ -90,9 +106,6 @@ export default function SettingsView() {
         <Stepper size="sm" label="Large muscles (h)" value={settings.recovery_hours_large} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_large: v })} />
         <Stepper size="sm" label="Small muscles (h)" value={settings.recovery_hours_small} step={6} min={12} max={168} onChange={(v) => updateSettings({ recovery_hours_small: v })} />
         <Stepper size="sm" label="Fatigue threshold" value={settings.fatigue_threshold} step={0.5} min={1} max={30} onChange={(v) => updateSettings({ fatigue_threshold: v })} />
-        {rides ? (
-          <Stepper size="sm" label="Ride to the gym (mi)" value={settings.ride_miles ?? DEFAULT_RIDE_MILES} step={0.5} min={0.5} max={50} onChange={(v) => updateSettings({ ride_miles: v })} />
-        ) : null}
         <Stepper size="sm" label={`Default rest ${clock(settings.default_rest_sec)}`} unit="s" value={settings.default_rest_sec} step={15} min={0} max={600} onChange={(v) => updateSettings({ default_rest_sec: v })} />
       </div>
 

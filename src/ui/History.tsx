@@ -1,9 +1,9 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState } from "react";
 import { db, deleteSession, updateSession } from "../lib/db";
-import { DEFAULT_RIDE_MILES, groupBySession, MUSCLE_LABEL, MUSCLES, ridesFrom, ridesOn, RIDE_MUSCLES, setScore, setsPerMuscle, topSet, weekStart, type PastSession } from "../lib/logic";
+import { groupBySession, MUSCLE_LABEL, MUSCLES, setScore, setsPerMuscle, topSet, TRIP_MUSCLES, TRIP_WORDS, tripsFrom, weekStart, type PastSession } from "../lib/logic";
 import type { SetLog } from "../lib/types";
-import { SessionLines, sessionLines, SessionRide } from "./Summary";
+import { SessionLines, sessionLines, SessionTrip } from "./Summary";
 import { ConfirmButton, duration, Empty, go, lb, Seg, shortDate, TopBar, useFit } from "./kit";
 
 type Tab = "exercises" | "sessions" | "weekly";
@@ -214,7 +214,7 @@ function SessionList() {
               <span className="fit-list__title">{tById.get(s.day_template_id)?.name ?? "Deleted day"}</span>
               <span className="fit-list__sub">
                 {shortDate(s.started_at)} · {s.marked_only ? "marked done" : `${sets} sets · ${duration((s.ended_at ?? s.started_at) - s.started_at)}`}
-                {(s.biked_miles ?? 0) > 0 ? ` · rode ${lb(s.biked_miles!)} mi` : ""}
+                {(s.biked_miles ?? 0) > 0 ? ` · ${TRIP_WORDS[s.trip_mode ?? "ride"].past} ${lb(s.biked_miles!)} mi` : ""}
               </span>
             </span>
           </button>
@@ -240,7 +240,7 @@ function SessionDetail({ id }: { id: string }) {
         <div><dt>PRs</dt><dd>{lines.filter((l) => l.pr).length}</dd></div>
       </dl>
       {session.marked_only ? <Empty>Marked done without logging.</Empty> : <SessionLines lines={lines} />}
-      {ridesOn(settings) ? <SessionRide session={session} defaultMiles={settings.ride_miles ?? DEFAULT_RIDE_MILES} /> : null}
+      <SessionTrip session={session} settings={settings} />
       <label className="fit-field">
         <span className="fit-field__label">Notes</span>
         <textarea className="fit-input" rows={3} defaultValue={session.notes} onBlur={(e) => updateSession(session.id, { notes: e.target.value.trim() })} />
@@ -264,8 +264,8 @@ function Weekly() {
   toDate.setDate(toDate.getDate() + 7);
   const to = toDate.getTime();
   const sets = useLiveQuery(() => db.sets.where("logged_at").between(from, to, true, false).toArray(), [from, to]);
-  const rides = useLiveQuery(() => db.sessions.where("started_at").between(from, to, true, false).toArray().then(ridesFrom), [from, to]);
-  const rideMiles = (rides ?? []).reduce((n, r) => n + r.miles, 0);
+  const trips = useLiveQuery(() => db.sessions.where("started_at").between(from, to, true, false).toArray().then(tripsFrom), [from, to]);
+  const tripMiles = (trips ?? []).reduce((n, r) => n + r.miles, 0);
   const volume = useMemo(() => setsPerMuscle(sets ?? [], exById), [sets, exById]);
   const scaleMax = Math.max(BAND.max + 4, ...MUSCLES.map((m) => volume[m]));
   const pct = (v: number) => `${(v / scaleMax) * 100}%`;
@@ -278,7 +278,7 @@ function Weekly() {
         <div>
           <strong>{label}</strong>
           <span>{shortDate(from)} – {shortDate(to - 1)} · {sets?.length ?? 0} sets</span>
-          <span className="fit-weekly__ride">{rides?.length ? `Biked ${lb(rideMiles)} mi · ${rides.length} ride${rides.length > 1 ? "s" : ""}` : "No rides logged"}</span>
+          {trips?.length ? <span className="fit-weekly__ride">{`${lb(tripMiles)} mi getting here · ${trips.length} trip${trips.length > 1 ? "s" : ""}`}</span> : null}
         </div>
         <button type="button" className="fit-iconbtn" onClick={() => setOffset(Math.max(0, offset - 1))} disabled={offset === 0} aria-label="Next week">›</button>
       </div>
@@ -286,8 +286,8 @@ function Weekly() {
       <ul className="fit-bars">
         {MUSCLES.map((m) => {
           const v = volume[m];
-          // Legs the riding trains aren't "under" in a week you rode.
-          const rode = rideMiles > 0 && RIDE_MUSCLES.has(m) && v < BAND.min;
+          // Legs the trip here trains aren't "under" in a week you rode, ran or walked in.
+          const rode = tripMiles > 0 && TRIP_MUSCLES.has(m) && v < BAND.min;
           const state = rode ? "ride" : v === 0 ? "none" : v < BAND.min ? "under" : v > BAND.max ? "over" : "in";
           return (
             <li key={m} className={`is-${state}`}>
@@ -298,7 +298,7 @@ function Weekly() {
               </span>
               <span className="fit-bars__value">
                 {lb(v)}
-                <small>{state === "in" ? "in range" : state === "under" ? "under" : state === "over" ? "over" : state === "ride" ? "+ riding" : ""}</small>
+                <small>{state === "in" ? "in range" : state === "under" ? "under" : state === "over" ? "over" : state === "ride" ? "+ trips" : ""}</small>
               </span>
             </li>
           );

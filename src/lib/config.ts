@@ -7,8 +7,8 @@ export interface FitConfig {
   base: string;
   /** Lock the gym name and hide the field. null = people name their own gym. */
   club: string | null;
-  /** New installs show the "Rode here?" switch and count rides as leg fatigue. */
-  rides: boolean;
+  /** New installs count the trip to the gym (rode / ran / walked) as leg fatigue. */
+  trips: boolean;
   /** Sync worker URL (no trailing slash). null hides sync entirely. */
   syncUrl: string | null;
   /** IndexedDB name. Changing it on a live deployment strands everyone's data. */
@@ -18,7 +18,7 @@ export interface FitConfig {
 export const FIT_CONFIG: FitConfig = {
   base: import.meta.env.BASE_URL,
   club: null,
-  rides: false,
+  trips: true,
   syncUrl: import.meta.env.VITE_SYNC_URL || null,
   dbName: "open-fit",
 };

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   afterTraining, buildPlan, currentTemplateId, DEFAULT_SET_REPS, suggestPerSet, withSetReps, fatigueScores, groupBySession, isPR, muscleStatus,
-  prefill, resolveEquipment, ridesFrom, setsPerMuscle, stepFor, suggestNext, trimmedSets, unmappedExercises,
+  prefill, resolveEquipment, setsPerMuscle, tripsFrom, stepFor, suggestNext, trimmedSets, unmappedExercises,
 } from '../src/lib/logic.ts';
 import { DEFAULT_SETTINGS, STARTER_EQUIPMENT, STARTER_EXERCISES, STARTER_TEMPLATES, upgradeLibrary, upgradeStarter } from '../src/lib/seed.ts';
 
@@ -284,6 +284,18 @@ test('a ride to the gym adds leg fatigue, scaled by miles, decaying like sets', 
   assert.equal(muscleStatus(fatigueScores([], exById, now, settings, daily).quads, 6), 'recovering');
 });
 
-test('only sessions marked "rode here" count as rides', () => {
-  assert.deepEqual(ridesFrom([{ started_at: 1, biked_miles: 5 }, { started_at: 2, biked_miles: 0 }, { started_at: 3 }]), [{ at: 1, miles: 5 }]);
+test('only sessions whose trip counted are trips; older ones without a mode were rides', () => {
+  assert.deepEqual(
+    tripsFrom([{ started_at: 1, biked_miles: 5 }, { started_at: 2, biked_miles: 0 }, { started_at: 3 }, { started_at: 4, biked_miles: 2, trip_mode: 'run' }]),
+    [{ at: 1, miles: 5, mode: 'ride' }, { at: 4, miles: 2, mode: 'run' }],
+  );
+});
+
+test('running loads the legs harder per mile than riding, walking much less', () => {
+  const now = 1_000 * H;
+  const settings = { recovery_hours_large: 72, recovery_hours_small: 48 };
+  const legs = (mode) => fatigueScores([], exById, now, settings, [{ at: now, miles: 5, mode }]);
+  const [ride, run, walk] = ['ride', 'run', 'walk'].map(legs);
+  for (const m of ['quads', 'calves', 'hamstrings']) assert.ok(run[m] > ride[m] && ride[m] >= walk[m], m);
+  assert.equal(run.chest + walk.chest, 0);
 });

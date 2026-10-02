@@ -5,7 +5,7 @@ import Dexie, { type Table, type Transaction } from "dexie";
 import { FIT_CONFIG } from "./config";
 import { afterTraining, groupBySession, localDate, type PastSession } from "./logic";
 import { DEFAULT_SETTINGS, STARTER_EQUIPMENT, STARTER_EXERCISES, STARTER_TEMPLATES, upgradeLibrary, upgradeStarter } from "./seed";
-import type { Backup, DayTemplate, Equipment, Exercise, PlanItem, Session, SetLog, Settings } from "./types";
+import type { Backup, DayTemplate, Equipment, Exercise, PlanItem, Session, SetLog, Settings, TripMode } from "./types";
 
 class FitDB extends Dexie {
   equipment!: Table<Equipment, string>;
@@ -47,6 +47,14 @@ class FitDB extends Dexie {
       if (up?.equipment.length) await tx.table("equipment").bulkPut(up.equipment);
       if (up?.exercises.length) await tx.table("exercises").bulkPut(up.exercises);
     });
+    // v5: rides become trips (ride / run / walk). A device that has logged
+    // rides keeps riding as its default, at the distance it had set.
+    this.version(5).stores(stores).upgrade(async (tx) => {
+      const settings = await tx.table<Settings, string>("settings").get("settings");
+      if (!settings || settings.trip) return;
+      const rode = await tx.table<Session, string>("sessions").filter((s) => (s.biked_miles ?? 0) > 0).first();
+      if (rode) await tx.table("settings").update("settings", { trip: { mode: "ride", miles: settings.ride_miles ?? 5 } });
+    });
   }
 }
 
@@ -76,7 +84,7 @@ export async function seed(library: "starter" | "empty", clubName = ""): Promise
     await db.settings.put({
       ...DEFAULT_SETTINGS,
       club_name: FIT_CONFIG.club ?? (clubName.trim() || DEFAULT_SETTINGS.club_name),
-      ride_tracking: FIT_CONFIG.rides,
+      ride_tracking: FIT_CONFIG.trips,
     });
   });
 }
@@ -92,7 +100,11 @@ export async function activeSession(): Promise<Session | undefined> {
   return recent.find((s) => s.ended_at === null);
 }
 
-export async function startSession(templateId: string, plan: PlanItem[], bikedMiles = 0): Promise<Session> {
+/** The trip that counted for a session, as stored on it. */
+export type SessionTrip = { mode: TripMode; miles: number } | null;
+const tripFields = (trip: SessionTrip) => ({ biked_miles: trip?.miles ?? 0, ...(trip ? { trip_mode: trip.mode } : {}) });
+
+export async function startSession(templateId: string, plan: PlanItem[], trip: SessionTrip = null): Promise<Session> {
   return db.transaction("rw", db.sessions, async () => {
     const open = await activeSession();
     if (open) return open;
@@ -106,7 +118,7 @@ export async function startSession(templateId: string, plan: PlanItem[], bikedMi
       notes: "",
       plan,
       cursor: 0,
-      biked_miles: bikedMiles,
+      ...tripFields(trip),
     };
     await db.sessions.add(session);
     return session;
@@ -136,7 +148,7 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 /** Light day: count it as done without logging anything. */
-export async function markDone(templateId: string, bikedMiles = 0): Promise<void> {
+export async function markDone(templateId: string, trip: SessionTrip = null): Promise<void> {
   await db.transaction("rw", [db.sessions, db.settings], async () => {
     const settings = await db.settings.get("settings");
     if (!settings) return;
@@ -151,14 +163,19 @@ export async function markDone(templateId: string, bikedMiles = 0): Promise<void
       plan: [],
       cursor: 0,
       marked_only: true,
-      biked_miles: bikedMiles,
+      ...tripFields(trip),
     });
     await db.settings.update("settings", afterTraining(settings, templateId));
   });
 }
 
-/** How you got to the gym last time — the default for the "Biked here" toggle. null = no sessions yet. */
-export async function lastBiked(): Promise<boolean | null> {
+/** Change a session's trip after the fact (forgot to flip the switch). */
+export async function setSessionTrip(id: string, trip: SessionTrip): Promise<void> {
+  await db.sessions.update(id, { biked_miles: trip?.miles ?? 0, trip_mode: trip?.mode });
+}
+
+/** Whether last time's trip counted: the default for the yes/no switch. null = no sessions yet. */
+export async function lastTrip(): Promise<boolean | null> {
   const last = await db.sessions.orderBy("started_at").reverse().first();
   return last ? (last.biked_miles ?? 0) > 0 : null;
 }
@@ -274,6 +291,8 @@ export async function importBackup(raw: unknown): Promise<void> {
   const backup = raw;
   const { sync: _ignored, ...incoming } = backup.settings;
   const base: Settings = { ...DEFAULT_SETTINGS, ...incoming, id: "settings", ...(FIT_CONFIG.club ? { club_name: FIT_CONFIG.club } : {}) };
+  // Backups from before trips: anyone who logged rides keeps riding as the default.
+  if (!base.trip && backup.sessions.some((x) => (x.biked_miles ?? 0) > 0)) base.trip = { mode: "ride", miles: base.ride_miles ?? 5 };
   const program = upgradeStarter(backup.templates, base);
   const library = upgradeLibrary(backup.equipment, backup.exercises);
   await db.transaction("rw", [db.equipment, db.exercises, db.templates, db.sessions, db.sets, db.settings], async () => {

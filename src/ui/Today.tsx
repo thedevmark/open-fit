@@ -1,10 +1,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState } from "react";
-import { activeSession, db, lastBiked, markDone, sessionsBetween, startSession } from "../lib/db";
-import { buildPlan, currentTemplateId, DEFAULT_RIDE_MILES, fatigueScores, MUSCLE_LABEL, ridesFrom, ridesOn } from "../lib/logic";
+import { activeSession, db, lastTrip, markDone, sessionsBetween, startSession, updateSettings } from "../lib/db";
+import { buildPlan, currentTemplateId, fatigueScores, MUSCLE_LABEL, tripsFrom, tripsOn } from "../lib/logic";
 import type { PlanItem } from "../lib/types";
 import BodyMap from "./BodyMap";
-import { BikeToggle, duration, go, shortDate, useFit, useNow } from "./kit";
+import { duration, go, shortDate, useFit, useNow } from "./kit";
+import { TripPicker, TripToggle } from "./Trip";
 
 export default function Today() {
   const { settings, templates, tById, exById, eqById } = useFit();
@@ -21,12 +22,15 @@ export default function Today() {
   const minute = Math.floor(now / 60_000);
   const recent = useLiveQuery(() => db.sets.where("logged_at").above(Date.now() - windowMs).toArray(), [windowMs, minute]);
   const recentSessions = useLiveQuery(() => sessionsBetween(Date.now() - windowMs, Date.now() + 1), [windowMs, minute]);
-  const rides = ridesOn(settings);
-  const rideMiles = settings.ride_miles ?? DEFAULT_RIDE_MILES;
-  // Defaults to how you got here last time; flip it when you came another way.
-  const [biked, setBiked] = useState<boolean | null>(null);
-  const lastWasBike = useLiveQuery(lastBiked, []);
-  const bikedNow = rides && (biked ?? lastWasBike ?? true);
+  // The trip here: asked once (mode + distance), then a yes/no that
+  // defaults to whatever last time was.
+  const tracking = tripsOn(settings);
+  const trip = settings.trip;
+  const [tripYes, setTripYes] = useState<boolean | null>(null);
+  const [editingTrip, setEditingTrip] = useState(false);
+  const lastCounted = useLiveQuery(lastTrip, []);
+  const tripNow = tracking && trip ? (tripYes ?? lastCounted ?? true) : false;
+  const tripToday = tripNow && trip ? trip : null;
   const lastDone = useLiveQuery(
     async () => {
       const all = await db.sessions.orderBy("started_at").reverse().toArray();
@@ -39,8 +43,8 @@ export default function Today() {
   const dayId = override && tById.has(override) ? override : upNext;
   const template = dayId ? tById.get(dayId) : undefined;
   const scores = useMemo(
-    () => fatigueScores(recent ?? [], exById, now, settings, rides ? ridesFrom(recentSessions ?? []) : []),
-    [recent, recentSessions, exById, now, settings, rides],
+    () => fatigueScores(recent ?? [], exById, now, settings, tracking ? tripsFrom(recentSessions ?? []) : []),
+    [recent, recentSessions, exById, now, settings, tracking],
   );
   const built = useMemo(
     () => (template ? buildPlan(template, exById, eqById, scores, settings, tById) : null),
@@ -62,7 +66,7 @@ export default function Today() {
     if (!template || busy) return;
     setBusy(true);
     try {
-      await startSession(template.id, plan, bikedNow ? rideMiles : 0);
+      await startSession(template.id, plan, tripToday);
       go("workout");
     } finally {
       setBusy(false);
@@ -194,7 +198,16 @@ export default function Today() {
         </ol>
       </section>
 
-      {open || !rides ? null : <BikeToggle on={bikedNow} miles={rideMiles} onChange={setBiked} />}
+      {open || !tracking ? null : !trip || editingTrip ? (
+        <TripPicker
+          current={trip}
+          onSave={(t) => { void updateSettings({ trip: t }); setTripYes(true); setEditingTrip(false); }}
+          onNone={() => { void updateSettings({ ride_tracking: false }); setEditingTrip(false); }}
+          onCancel={trip ? () => setEditingTrip(false) : undefined}
+        />
+      ) : (
+        <TripToggle on={tripNow} trip={trip} onChange={setTripYes} onEdit={() => setEditingTrip(true)} />
+      )}
 
       <div className="fit-dock">
         {open ? (
@@ -205,7 +218,7 @@ export default function Today() {
               Start {template?.name ?? ""}
             </button>
             {isLight && template ? (
-              <button type="button" className="fit-btn fit-btn--ghost" onClick={() => markDone(template.id, bikedNow ? rideMiles : 0)}>Mark done</button>
+              <button type="button" className="fit-btn fit-btn--ghost" onClick={() => markDone(template.id, tripToday)}>Mark done</button>
             ) : null}
           </>
         )}

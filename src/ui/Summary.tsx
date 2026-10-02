@@ -1,10 +1,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 import { syncNow } from "../lib/autosync";
-import { activeSession, db, deleteSession, finishSession, updateSession } from "../lib/db";
-import { DEFAULT_RIDE_MILES, groupBySession, isPR, ridesOn, topSet } from "../lib/logic";
-import type { Session, SetLog } from "../lib/types";
-import { BikeToggle, ConfirmButton, duration, go, lb, TopBar, useFit, useNow, useRest } from "./kit";
+import { activeSession, db, deleteSession, finishSession, setSessionTrip } from "../lib/db";
+import { groupBySession, isPR, topSet, tripsOn } from "../lib/logic";
+import type { Session, SetLog, Settings } from "../lib/types";
+import { ConfirmButton, duration, go, lb, TopBar, useFit, useNow, useRest } from "./kit";
+import { TripToggle } from "./Trip";
 
 export interface ExerciseLine {
   exercise_id: string;
@@ -72,7 +73,7 @@ export default function Summary() {
         <div><dt>PRs</dt><dd>{prs}</dd></div>
       </dl>
       <SessionLines lines={lines} />
-      {ridesOn(settings) ? <SessionRide session={session} defaultMiles={settings.ride_miles ?? DEFAULT_RIDE_MILES} /> : null}
+      <SessionTrip session={session} settings={settings} />
       <label className="fit-field">
         <span className="fit-field__label">Session notes</span>
         <textarea className="fit-input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Felt strong, gym was packed…" />
@@ -93,16 +94,13 @@ export default function Summary() {
   );
 }
 
-/** Fix "Rode here" after the fact, if you forgot to flip it. */
-export function SessionRide({ session, defaultMiles }: { session: Session; defaultMiles: number }) {
+/** Fix the trip after the fact, if you forgot to flip the switch. */
+export function SessionTrip({ session, settings }: { session: Session; settings: Settings }) {
   const miles = session.biked_miles ?? 0;
-  return (
-    <BikeToggle
-      on={miles > 0}
-      miles={miles > 0 ? miles : defaultMiles}
-      onChange={(on) => updateSession(session.id, { biked_miles: on ? defaultMiles : 0 })}
-    />
-  );
+  const logged = miles > 0 ? { mode: session.trip_mode ?? "ride", miles } as const : null;
+  const trip = logged ?? settings.trip;
+  if (!trip || (!logged && !tripsOn(settings))) return null;
+  return <TripToggle on={!!logged} trip={trip} onChange={(on) => setSessionTrip(session.id, on ? trip : null)} />;
 }
 
 export function SessionLines({ lines }: { lines: ExerciseLine[] }) {

@@ -721,3 +721,10 @@ button.fit-plan__eq { min-height: 32px; padding: 0; border: 0; background: none;
 .fit-sync__code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.04em; text-transform: uppercase; }
 .fit-foot a { color: inherit; text-underline-offset: 3px; }
 .fit-callout--btn { width: 100%; text-align: left; color: inherit; font: inherit; }
+
+/* Trip to the gym: asked once, then a yes/no. */
+.fit-trip { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--fit-line-strong); border-radius: var(--fit-radius); background: var(--fit-surface); }
+.fit-trip__q { font-size: 17px; font-weight: 700; }
+.fit-trip-row { display: flex; align-items: center; gap: 10px; }
+.fit-trip-row .fit-bike { flex: 1; min-width: 0; }
+.fit-bike svg path { fill: none; }

@@ -14,6 +14,7 @@ import type {
   SetLog,
   Settings,
   TemplateItem,
+  TripMode,
 } from "./types";
 
 // ── Muscles ──────────────────────────────────────────────────────────
@@ -142,50 +143,62 @@ export type MuscleStatus = "fresh" | "recovering" | "fatigued";
 
 const EFFORT_MULT: Record<Effort, number> = { easy: 0.5, solid: 1, failure: 1.5 };
 
-export const DEFAULT_RIDE_MILES = 5;
+// ── The trip to the gym ──────────────────────────────────────────────
 
-/**
- * Leg fatigue from a 5-mile ride, scaled by distance. An easy ride is
- * about one set's worth for the quads — enough that daily riding shows up
- * as "recovering", never enough on its own to trim a day.
- */
-export const RIDE_FATIGUE_PER_5_MI: Partial<Record<Muscle, number>> = {
-  quads: 1,
-  glutes: 0.5,
-  calves: 0.5,
-  hamstrings: 0.25,
+export const TRIP_MODES: TripMode[] = ["ride", "run", "walk"];
+
+export const TRIP_WORDS: Record<TripMode, { option: string; question: string; past: string; miles: number }> = {
+  ride: { option: "Rode", question: "Rode here?", past: "rode", miles: 5 },
+  run: { option: "Ran", question: "Ran here?", past: "ran", miles: 2 },
+  walk: { option: "Walked", question: "Walked here?", past: "walked", miles: 1 },
 };
 
-/** Muscles the riding trains, so the weekly view doesn't call them "under". */
-export const RIDE_MUSCLES: ReadonlySet<Muscle> = new Set<Muscle>(["quads", "glutes", "calves"]);
+/**
+ * Leg fatigue from 5 miles of getting to the gym, scaled by distance. An
+ * easy ride is about one set's worth for the quads: enough that a daily
+ * commute shows up as "recovering", never enough on its own to trim a day.
+ * Running loads the legs far harder per mile; walking far less.
+ */
+export const TRIP_FATIGUE_PER_5_MI: Record<TripMode, Partial<Record<Muscle, number>>> = {
+  ride: { quads: 1, glutes: 0.5, calves: 0.5, hamstrings: 0.25 },
+  run: { quads: 1.5, calves: 2, hamstrings: 1, glutes: 1 },
+  walk: { calves: 0.5, quads: 0.25, glutes: 0.25, hamstrings: 0.25 },
+};
 
-export interface Ride {
+/** Muscles the trip trains, so the weekly view doesn't call them "under". */
+export const TRIP_MUSCLES: ReadonlySet<Muscle> = new Set<Muscle>(["quads", "glutes", "calves"]);
+
+export interface Trip {
   at: number;
   miles: number;
+  /** Missing on sessions from before running and walking existed: those were rides. */
+  mode?: TripMode;
 }
 
-/** Ride tracking is on unless turned off; data from before the switch existed had it on. */
-export function ridesOn(settings: Pick<Settings, "ride_tracking">): boolean {
+/** Counting the trip is on unless turned off; data from before the switch existed had it on. */
+export function tripsOn(settings: Pick<Settings, "ride_tracking">): boolean {
   return settings.ride_tracking ?? true;
 }
 
-/** Rides recorded on sessions ("Rode here"). */
-export function ridesFrom(sessions: readonly { started_at: number; biked_miles?: number }[]): Ride[] {
-  return sessions.filter((s) => (s.biked_miles ?? 0) > 0).map((s) => ({ at: s.started_at, miles: s.biked_miles! }));
+/** Trips recorded on sessions ("Rode here?", "Ran here?", …). */
+export function tripsFrom(sessions: readonly { started_at: number; biked_miles?: number; trip_mode?: TripMode }[]): Trip[] {
+  return sessions
+    .filter((s) => (s.biked_miles ?? 0) > 0)
+    .map((s) => ({ at: s.started_at, miles: s.biked_miles!, mode: s.trip_mode ?? "ride" }));
 }
 
 /**
  * Fatigue per muscle: each set adds 1.0 to its primary muscle and 0.5 to
  * each secondary, x1.5 if tagged failure (x0.5 if tagged easy), decaying
- * linearly to 0 over the muscle's recovery window. Rides add leg fatigue
- * per RIDE_FATIGUE_PER_5_MI.
+ * linearly to 0 over the muscle's recovery window. Trips to the gym add leg
+ * fatigue per TRIP_FATIGUE_PER_5_MI.
  */
 export function fatigueScores(
   sets: readonly Pick<SetLog, "exercise_id" | "effort" | "logged_at">[],
   exercisesById: ReadonlyMap<string, Pick<Exercise, "primary_muscle" | "secondary_muscles">>,
   now: number,
   settings: Pick<Settings, "recovery_hours_large" | "recovery_hours_small">,
-  rides: readonly Ride[] = [],
+  trips: readonly Trip[] = [],
 ): Record<Muscle, number> {
   const scores = Object.fromEntries(MUSCLES.map((m) => [m, 0])) as Record<Muscle, number>;
   const add = (m: Muscle, amount: number, hours: number) => {
@@ -202,9 +215,9 @@ export function fatigueScores(
     add(ex.primary_muscle, mult, hours);
     for (const m of ex.secondary_muscles) if (m !== ex.primary_muscle) add(m, 0.5 * mult, hours);
   }
-  for (const r of rides) {
+  for (const r of trips) {
     const hours = (now - r.at) / 3_600_000;
-    for (const [m, per5] of Object.entries(RIDE_FATIGUE_PER_5_MI) as [Muscle, number][]) add(m, (per5 * r.miles) / 5, hours);
+    for (const [m, per5] of Object.entries(TRIP_FATIGUE_PER_5_MI[r.mode ?? "ride"]) as [Muscle, number][]) add(m, (per5 * r.miles) / 5, hours);
   }
   return scores;
 }

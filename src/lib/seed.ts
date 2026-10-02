@@ -294,5 +294,4 @@ export const DEFAULT_SETTINGS: Settings = {
   fatigue_threshold: 6,
   club_name: "My gym",
   setup_done: false,
-  ride_miles: 5,
 };

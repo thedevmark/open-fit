@@ -286,21 +286,3 @@ export function ConfirmButton({ children, confirm, onConfirm, className = "fit-b
     </button>
   );
 }
-
-/** "Rode here?" switch. Off = got here some other way. */
-export function BikeToggle({ on, miles, onChange }: { on: boolean; miles: number; onChange: (on: boolean) => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} className={`fit-bike${on ? " is-on" : ""}`} onClick={() => onChange(!on)}>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="5.5" cy="16.5" r="3.5" />
-        <circle cx="18.5" cy="16.5" r="3.5" />
-        <path d="M5.5 16.5 9 9h6l3.5 7.5M9 9 12 16.5h-1M15 9l-1.5-3H11" />
-      </svg>
-      <span className="fit-bike__text">
-        <strong>Rode here?</strong>
-        <small>{on ? `Yes · +${lb(miles)} mi of riding` : "No · came another way"}</small>
-      </span>
-      <span className="fit-bike__switch" aria-hidden="true"><i /></span>
-    </button>
-  );
-}
