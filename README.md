@@ -95,6 +95,11 @@ Exercise photos and instructions come from
 [free-exercise-db](https://github.com/yuhonas/free-exercise-db), released into
 the public domain under The Unlicense. `npm run howto` rebuilds them.
 
+The muscle map is drawn with anatomy paths from
+[react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter)
+(MIT, © 2022 ELABBASSI Hicham); the full notice is in `src/lib/bodyPaths.ts`.
+`npm run bodymap` rebuilds them.
+
 Equipment names in the starter list (Hammer Strength, Life Fitness) are
 trademarks of their owners and are used only to describe common machines.
 This project isn't affiliated with any gym or equipment maker, and it isn't

@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "test": "node --test \"tests/*.test.mjs\"",
     "typecheck": "tsc --noEmit",
-    "howto": "node scripts/howto.mjs"
+    "howto": "node scripts/howto.mjs",
+    "bodymap": "node scripts/bodymap.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.2.0",

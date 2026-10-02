@@ -1,71 +1,69 @@
 import { useState } from "react";
+import { BODY, type BodySide } from "../lib/bodyPaths";
 import { MUSCLE_LABEL, MUSCLES, muscleStatus, type MuscleStatus } from "../lib/logic";
 import type { Muscle } from "../lib/types";
 
-// Low-poly front/back figures. Each muscle is one or two polygons in a
-// 100×176 box; the left/right halves mirror around x = 50.
-type Shape = [Muscle | null, string];
-
-const mirror = (pts: string) =>
-  pts.split(" ").map((p) => {
-    const [x, y] = p.split(",").map(Number);
-    return `${100 - x},${y}`;
-  }).join(" ");
-
-const pair = (m: Muscle | null, left: string): Shape[] => [[m, left], [m, mirror(left)]];
-
-const FRONT: Shape[] = [
-  [null, "38,86 62,86 64,92 36,92"],
-  ...pair("side_delts", "24,34 30,30 32,44 26,48"),
-  ...pair("front_delts", "30,30 40,28 40,40 32,44"),
-  ...pair("chest", "40,29 49,31 49,49 37,51 33,44 40,40"),
-  ...pair("biceps", "26,49 33,46 34,64 27,66"),
-  ...pair("forearms", "27,68 34,66 32,88 26,89"),
-  ["abs", "38,53 62,53 60,85 40,85"],
-  ...pair("quads", "36,93 46,93 45,132 37,130 34,108"),
-  ...pair("adductors", "46,93 49.5,93 49.5,110 45,124"),
-  ...pair("calves", "37,136 45,136 44,170 39,170"),
-];
-
-const BACK: Shape[] = [
-  ["traps", "42,22 58,22 66,31 58,37 50,43 42,37 34,31"],
-  ...pair("rear_delts", "24,34 34,31 34,44 26,48"),
-  ["upper_back", "40,38 50,44 60,38 62,51 50,56 38,51"],
-  ...pair("lats", "34,45 38,53 49.5,58 44,74 38,72 35,58"),
-  ["lower_back", "45,74 50,60 55,74 58,85 42,85"],
-  ...pair("triceps", "26,49 34,46 34,64 27,66"),
-  ...pair("forearms", "27,68 34,66 32,88 26,89"),
-  ["glutes", "37,87 63,87 65,104 50,108 35,104"],
-  ...pair("hamstrings", "35,107 49.5,110 47,134 37,132"),
-  ...pair("calves", "36,136 46,136 44,170 38,170"),
-];
+// Which of our muscles each drawn region stands for. The drawing has one
+// deltoid and one upper-back shape, so those regions carry several muscles
+// and show the most fatigued of them. Regions not listed (head, hands, knees…)
+// are drawn as plain body.
+const FRONT: Record<string, Muscle[]> = {
+  chest: ["chest"],
+  deltoids: ["front_delts", "side_delts"],
+  biceps: ["biceps"],
+  triceps: ["triceps"],
+  forearm: ["forearms"],
+  abs: ["abs"],
+  obliques: ["abs"],
+  trapezius: ["traps"],
+  quadriceps: ["quads"],
+  adductors: ["adductors"],
+  calves: ["calves"],
+};
+const BACK: Record<string, Muscle[]> = {
+  trapezius: ["traps"],
+  deltoids: ["rear_delts", "side_delts"],
+  "upper-back": ["lats", "upper_back"],
+  "lower-back": ["lower_back"],
+  triceps: ["triceps"],
+  forearm: ["forearms"],
+  gluteal: ["glutes"],
+  hamstring: ["hamstrings"],
+  adductors: ["adductors"],
+  calves: ["calves"],
+};
 
 const STATUS_LABEL: Record<MuscleStatus, string> = { fresh: "Fresh", recovering: "Recovering", fatigued: "Fatigued" };
 
 export default function BodyMap({ scores, threshold }: { scores: Record<Muscle, number>; threshold: number }) {
-  const [picked, setPicked] = useState<Muscle | null>(null);
-  const status = (m: Muscle) => muscleStatus(scores[m] ?? 0, threshold);
-  const flagged = MUSCLES.filter((m) => status(m) !== "fresh").sort((a, b) => scores[b] - scores[a]);
+  const [picked, setPicked] = useState<Muscle[] | null>(null);
+  const score = (m: Muscle) => scores[m] ?? 0;
+  const status = (m: Muscle) => muscleStatus(score(m), threshold);
+  const worst = (ms: Muscle[]) => ms.reduce((a, b) => (score(b) > score(a) ? b : a));
+  const flagged = MUSCLES.filter((m) => status(m) !== "fresh").sort((a, b) => score(b) - score(a));
+  const pickedKey = picked?.join();
 
-  const figure = (shapes: Shape[], label: string) => (
+  const figure = (side: BodySide, map: Record<string, Muscle[]>, label: string) => (
     <figure className="fit-body__fig">
-      <svg viewBox="0 0 100 176" role="img" aria-label={`${label} muscle map`}>
-        <circle cx="50" cy="13" r="8.5" className="fit-body__neutral" />
-        <rect x="46" y="21" width="8" height="7" className="fit-body__neutral" />
-        {shapes.map(([m, pts], i) =>
-          m ? (
-            <polygon
-              key={i}
-              points={pts}
-              className={`fit-body__m is-${status(m)}${picked === m ? " is-picked" : ""}`}
-              onClick={() => setPicked(picked === m ? null : m)}
+      <svg viewBox={side.viewBox} role="img" aria-label={`${label} muscle map`}>
+        {side.regions.map((r) => {
+          const muscles = map[r.slug];
+          if (!muscles) return r.d.map((d, i) => <path key={`${r.slug}-${i}`} d={d} className="fit-body__neutral" />);
+          const s = status(worst(muscles));
+          const key = muscles.join();
+          const name = muscles.map((m) => MUSCLE_LABEL[m]).join(" + ");
+          return (
+            <g
+              key={r.slug}
+              className={`fit-body__m is-${s}${pickedKey === key ? " is-picked" : ""}`}
+              onClick={() => setPicked(pickedKey === key ? null : muscles)}
             >
-              <title>{`${MUSCLE_LABEL[m]}: ${STATUS_LABEL[status(m)].toLowerCase()}`}</title>
-            </polygon>
-          ) : (
-            <polygon key={i} points={pts} className="fit-body__neutral" />
-          ),
-        )}
+              <title>{`${name}: ${STATUS_LABEL[s].toLowerCase()}`}</title>
+              {r.d.map((d, i) => <path key={i} d={d} />)}
+            </g>
+          );
+        })}
+        <path d={side.outline} className="fit-body__outline" />
       </svg>
       <figcaption>{label}</figcaption>
     </figure>
@@ -74,8 +72,8 @@ export default function BodyMap({ scores, threshold }: { scores: Record<Muscle, 
   return (
     <section className="fit-body" aria-label="Recovery">
       <div className="fit-body__figs">
-        {figure(FRONT, "Front")}
-        {figure(BACK, "Back")}
+        {figure(BODY.front, FRONT, "Front")}
+        {figure(BODY.back, BACK, "Back")}
       </div>
       <div className="fit-body__side">
         <ul className="fit-legend">
@@ -84,9 +82,13 @@ export default function BodyMap({ scores, threshold }: { scores: Record<Muscle, 
           ))}
         </ul>
         {picked ? (
-          <p className="fit-body__picked">
-            <strong>{MUSCLE_LABEL[picked]}</strong> {STATUS_LABEL[status(picked)].toLowerCase()} · {scores[picked].toFixed(1)} / {threshold}
-          </p>
+          <ul className="fit-body__picked">
+            {picked.map((m) => (
+              <li key={m}>
+                <strong>{MUSCLE_LABEL[m]}</strong> {STATUS_LABEL[status(m)].toLowerCase()} · {score(m).toFixed(1)} / {threshold}
+              </li>
+            ))}
+          </ul>
         ) : null}
         {flagged.length ? (
           <ul className="fit-body__list">
