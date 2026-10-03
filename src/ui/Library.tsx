@@ -32,13 +32,9 @@ function MachineList() {
   const { equipment } = useFit();
   const [q, setQ] = useState("");
   const shown = equipment.filter((e) => `${e.name} ${e.location_note} ${e.type}`.toLowerCase().includes(q.trim().toLowerCase()));
-  const noLocation = equipment.filter((e) => !e.location_note).length;
   return (
     <>
       <input className="fit-input fit-search" type="search" placeholder="Search machines" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search machines" />
-      {noLocation > 0 && equipment.length > 0 ? (
-        <p className="fit-muted">{noLocation} of {equipment.length} still need a location note — add them as you walk the floor.</p>
-      ) : null}
       {equipment.length === 0 ? <Empty>No machines yet. Walk the club and add each one with “+ Machine”.</Empty> : null}
       <ul className="fit-list">
         {shown.map((e) => (
@@ -46,7 +42,7 @@ function MachineList() {
             <button type="button" onClick={() => go("library", "eq", e.id)}>
               <span className="fit-list__main">
                 <span className="fit-list__title">{e.name}</span>
-                <span className="fit-list__sub">{e.type}{e.location_note ? ` · ${e.location_note}` : " · no location yet"}</span>
+                <span className="fit-list__sub">{TYPE_LABEL[e.type]}{e.location_note ? ` · ${e.location_note}` : ""}</span>
               </span>
               {!e.available ? <span className="fit-tag is-fatigued">out</span> : null}
             </button>
@@ -120,14 +116,14 @@ function EquipmentEditor({ id }: { id: string }) {
     <div className="fit-page">
       <TopBar title={draft.name || "Machine"} onBack={() => go("library")} />
       <Field label="Name"><input className="fit-input" value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="Plate-loaded incline press" /></Field>
-      <Field label="Where it is" hint="What you'd tell yourself walking in: “back left by windows”.">
-        <input className="fit-input" value={draft.location_note} onChange={(e) => set({ location_note: e.target.value })} placeholder="Back left by windows" />
-      </Field>
       <Field label="Setup" hint="Seat, pads, handles — shown on the exercise card every time.">
         <input className="fit-input" value={draft.setup_note} onChange={(e) => set({ setup_note: e.target.value })} placeholder="Seat 4, pad 2" />
       </Field>
       <details className="fit-more">
-        <summary>More: type, weight step, muscles, out of order</summary>
+        <summary>More: type, weight step, muscles, where it is, out of order</summary>
+      <Field label="Where it is" hint="What you'd tell yourself walking in: “back left by windows”.">
+        <input className="fit-input" value={draft.location_note} onChange={(e) => set({ location_note: e.target.value })} placeholder="Back left by windows" />
+      </Field>
       <Field label="Type">
         <div className="fit-chips">
           {EQUIPMENT_TYPES.map((t) => <Chip key={t} on={draft.type === t} onClick={() => set({ type: t })}>{TYPE_LABEL[t]}</Chip>)}

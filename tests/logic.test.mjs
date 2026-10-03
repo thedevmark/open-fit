@@ -68,7 +68,7 @@ test('a phone on the old starter machine list gets the floor-photo machines; edi
   const up = upgradeLibrary(old, exercises);
   const byId = new Map(up.equipment.map(e => [e.id, e]));
   assert.equal(byId.get('pl-incline').name, 'Incline press · Hammer Strength', 'untouched starter name is renamed');
-  assert.equal(byId.get('pl-incline').location_note, 'Weights floor');
+  assert.equal(byId.get('pl-incline').location_note, '', 'no location labels pushed onto phones');
   assert.equal(byId.has('lat-pd'), false, 'a machine you renamed is left alone');
   assert.ok(byId.has('dual-pulley') && byId.has('treadmill') && byId.has('plyo-box'), 'new machines are added');
   assert.equal(byId.get('treadmill').type, 'cardio');

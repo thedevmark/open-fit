@@ -77,7 +77,6 @@ export function QuickAdd() {
 function OwnMachine({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const { exercises } = useFit();
   const [name, setName] = useState("");
-  const [location, setLocation] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const sorted = useMemo(() => [...exercises].sort((a, b) => a.name.localeCompare(b.name)), [exercises]);
   const toggle = (id: string) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]);
@@ -96,13 +95,12 @@ function OwnMachine({ onDone, onBack }: { onDone: () => void; onBack: () => void
           ))}
         </div>
       </div>
-      <Field label="Where is it? (optional)"><input className="fit-input" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Back left by the windows" /></Field>
       <div className="fit-dock">
         <button
           type="button"
           className="fit-btn fit-btn--primary fit-btn--block"
           disabled={!name.trim()}
-          onClick={async () => { await addMachines([{ name, exercises: picked, location }]); onDone(); }}
+          onClick={async () => { await addMachines([{ name, exercises: picked }]); onDone(); }}
         >
           Add machine
         </button>
@@ -141,7 +139,7 @@ export function AddFromLink({ payload }: { payload: string | undefined }) {
           <li key={i} className="fit-catalog__row">
             <span className="fit-list__main">
               <span className="fit-list__title">{label(r)}</span>
-              <span className="fit-list__sub">{r.location || "no location"}{already(r) ? " · already here, gets this name and spot" : ""}</span>
+              <span className="fit-list__sub">{[r.location, already(r) ? "already here, gets this name" : ""].filter(Boolean).join(" · ") || "new"}</span>
             </span>
           </li>
         ))}

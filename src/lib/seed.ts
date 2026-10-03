@@ -7,8 +7,8 @@
 
 import type { DayTemplate, Equipment, EquipmentType, Exercise, Muscle, Settings, TemplateItem } from "./types";
 
-function eq(id: string, name: string, type: EquipmentType, muscles: Muscle[], location_note = ""): Equipment {
-  return { id, name, type, muscles, location_note, setup_note: "", available: true };
+function eq(id: string, name: string, type: EquipmentType, muscles: Muscle[]): Equipment {
+  return { id, name, type, muscles, location_note: "", setup_note: "", available: true };
 }
 
 // A common commercial-gym lineup: Life Fitness cardio, Hammer Strength
@@ -16,36 +16,34 @@ function eq(id: string, name: string, type: EquipmentType, muscles: Muscle[], lo
 // adjustable pulley, a cable crossover with a pulldown bar, adjustable
 // benches, dumbbell racks, plyo boxes. Names lead with the movement; rename
 // anything that doesn't match your floor.
-const WEIGHTS = "Weights floor";
-const CARDIO = "Cardio floor";
 const HS = "Hammer Strength";
 
 export const STARTER_EQUIPMENT: Equipment[] = [
-  eq("pl-incline", `Incline press · ${HS}`, "plate-loaded", ["chest", "front_delts", "triceps"], WEIGHTS),
-  eq("pl-flat", `Chest press · ${HS}`, "plate-loaded", ["chest", "front_delts", "triceps"], WEIGHTS),
+  eq("pl-incline", `Incline press · ${HS}`, "plate-loaded", ["chest", "front_delts", "triceps"]),
+  eq("pl-flat", `Chest press · ${HS}`, "plate-loaded", ["chest", "front_delts", "triceps"]),
   eq("sel-chest", `Chest press · ${HS} Select`, "selectorized", ["chest", "front_delts", "triceps"]),
   eq("bb-bench", "Flat bench press station", "free weight", ["chest", "front_delts", "triceps"]),
-  eq("db", "Dumbbells + adjustable bench", "free weight", ["chest", "front_delts", "side_delts", "biceps", "triceps", "hamstrings", "traps"], "Dumbbell racks along the mirrors"),
+  eq("db", "Dumbbells + adjustable bench", "free weight", ["chest", "front_delts", "side_delts", "biceps", "triceps", "hamstrings", "traps"]),
   eq("smith", "Smith machine", "plate-loaded", ["chest", "front_delts", "glutes", "traps"]),
   eq("pec-deck", `Pec deck / rear delt fly · ${HS} Select`, "selectorized", ["chest", "rear_delts"]),
-  eq("crossover", "Cable crossover + pulldown bar", "cable", ["chest", "triceps", "rear_delts", "abs", "lats"], WEIGHTS),
-  eq("dual-pulley", "Dual adjustable pulley · Life Fitness", "cable", ["chest", "triceps", "biceps", "side_delts", "rear_delts", "abs"], `${WEIGHTS}, by the benches`),
+  eq("crossover", "Cable crossover + pulldown bar", "cable", ["chest", "triceps", "rear_delts", "abs", "lats"]),
+  eq("dual-pulley", "Dual adjustable pulley · Life Fitness", "cable", ["chest", "triceps", "biceps", "side_delts", "rear_delts", "abs"]),
   eq("cable-col", "Single cable column", "cable", ["triceps", "biceps", "side_delts", "rear_delts", "abs"]),
   eq("dip", "Dip station", "bodyweight", ["chest", "triceps"]),
   eq("sel-shoulder", `Shoulder press · ${HS} Select`, "selectorized", ["front_delts", "side_delts", "triceps"]),
-  eq("pl-shoulder", `Shoulder press · ${HS}`, "plate-loaded", ["front_delts", "side_delts", "triceps"], WEIGHTS),
+  eq("pl-shoulder", `Shoulder press · ${HS}`, "plate-loaded", ["front_delts", "side_delts", "triceps"]),
   eq("sel-lateral", `Lateral raise · ${HS} Select`, "selectorized", ["side_delts"]),
   eq("lat-pd", `Lat pulldown · ${HS} Select`, "selectorized", ["lats", "biceps", "upper_back"]),
   eq("assist-pull", "Assisted pull-up / dip", "selectorized", ["lats", "biceps", "chest", "triceps"]),
   eq("pullup-bar", "Pull-up bar", "bodyweight", ["lats", "biceps"]),
-  eq("pl-row", `Iso-lateral row · ${HS}`, "plate-loaded", ["upper_back", "lats", "biceps", "rear_delts"], WEIGHTS),
-  eq("pl-high-row", `High row · ${HS}`, "plate-loaded", ["lats", "upper_back", "biceps"], WEIGHTS),
+  eq("pl-row", `Iso-lateral row · ${HS}`, "plate-loaded", ["upper_back", "lats", "biceps", "rear_delts"]),
+  eq("pl-high-row", `High row · ${HS}`, "plate-loaded", ["lats", "upper_back", "biceps"]),
   eq("cable-row", "Seated cable row", "cable", ["upper_back", "lats", "biceps"]),
   eq("tbar", "T-bar row", "plate-loaded", ["upper_back", "lats", "lower_back"]),
   eq("sel-preacher", `Preacher curl · ${HS} Select`, "selectorized", ["biceps"]),
   eq("power-rack", "Power rack + barbell", "free weight", ["hamstrings", "glutes", "lower_back", "traps"]),
-  eq("hack", `Hack squat · ${HS}`, "plate-loaded", ["quads", "glutes"], WEIGHTS),
-  eq("leg-press", `Leg press · ${HS}`, "plate-loaded", ["quads", "glutes", "calves"], WEIGHTS),
+  eq("hack", `Hack squat · ${HS}`, "plate-loaded", ["quads", "glutes"]),
+  eq("leg-press", `Leg press · ${HS}`, "plate-loaded", ["quads", "glutes", "calves"]),
   eq("sel-leg-press", `Seated leg press · ${HS} Select`, "selectorized", ["quads", "glutes", "calves"]),
   eq("rdl-machine", "RDL machine", "plate-loaded", ["hamstrings", "glutes", "lower_back"]),
   eq("leg-ext", `Leg extension · ${HS} Select`, "selectorized", ["quads"]),
@@ -57,13 +55,13 @@ export const STARTER_EQUIPMENT: Equipment[] = [
   eq("seated-calf", "Seated calf raise", "plate-loaded", ["calves"]),
   eq("roman-chair", "Back extension bench", "bodyweight", ["lower_back", "glutes", "hamstrings"]),
   eq("ab-crunch", `Ab crunch · ${HS} Select`, "selectorized", ["abs"]),
-  eq("plyo-box", "Plyo boxes (12 / 24 in)", "bodyweight", ["quads", "glutes", "calves"], `${WEIGHTS}, by the pillar`),
-  eq("treadmill", "Treadmill · Life Fitness", "cardio", [], CARDIO),
-  eq("curve-tread", "Self-powered curved treadmill", "cardio", [], CARDIO),
-  eq("upright-bike", "Upright bike · Life Fitness", "cardio", [], CARDIO),
-  eq("recumbent-bike", "Recumbent bike · Life Fitness", "cardio", [], CARDIO),
-  eq("stair-climber", "Stair climber", "cardio", [], CARDIO),
-  eq("elliptical", "Elliptical cross-trainer", "cardio", [], CARDIO),
+  eq("plyo-box", "Plyo boxes (12 / 24 in)", "bodyweight", ["quads", "glutes", "calves"]),
+  eq("treadmill", "Treadmill · Life Fitness", "cardio", []),
+  eq("curve-tread", "Self-powered curved treadmill", "cardio", []),
+  eq("upright-bike", "Upright bike · Life Fitness", "cardio", []),
+  eq("recumbent-bike", "Recumbent bike · Life Fitness", "cardio", []),
+  eq("stair-climber", "Stair climber", "cardio", []),
+  eq("elliptical", "Elliptical cross-trainer", "cardio", []),
 ];
 
 /** Starter machine names before the floor photos, for renaming untouched ones. */
